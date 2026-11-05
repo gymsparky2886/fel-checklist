@@ -151,7 +151,9 @@ textarea.in{min-height:76px;resize:vertical;line-height:1.45}
 /* wide screens: sections side by side */
 @media (min-width:1100px){
 .wrap{max-width:1180px;padding-left:28px;padding-right:28px}
-body.editing .wrap{max-width:720px}
+body.editing .wrap{max-width:1180px}
+#editView{display:grid;grid-template-columns:minmax(360px,440px) minmax(0,1fr);gap:0 24px;align-items:start}
+#editView>.tabs,#remPanel,#bkPanel{grid-column:1/-1}
 #todayView{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:0 20px;align-items:start}
 #todayView>.alldone,#todayView>.upcoming,#todayView>.empty,#todayView>.missed{grid-column:1/-1}
 .rems{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
