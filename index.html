@@ -147,6 +147,17 @@ textarea.in{min-height:76px;resize:vertical;line-height:1.45}
 .st-done{color:var(--ok)}.st-late{color:var(--accent)}.st-miss{color:var(--danger)}.st-prog{color:var(--during)}
 .okmsg{color:var(--ok);font-size:14px;margin-top:8px}
 .okmsg:empty{display:none}
+.sethd{margin:-4px 0 6px;font-size:15px;font-weight:600}
+.appver{text-align:center;font-size:12px;color:var(--muted);margin:18px 0 0}
+.cfm{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:20px}
+.cfmbox{width:100%;max-width:380px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.cfmbox h3{margin:0 0 6px;font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-size:19px;overflow-wrap:anywhere}
+.cfmbox p{margin:0 0 18px;color:var(--muted);font-size:14.5px;line-height:1.45}
+.cfmbox .actions{justify-content:flex-end}
+.btn.redfill{background:#C62828;border-color:#C62828;color:#fff}
+.btn.redfill:hover{background:#B71C1C;border-color:#B71C1C}
+#impConfirm{display:none}
+
 .lastw{font-size:12px;color:var(--muted);margin-left:8px;white-space:nowrap}
 .msteps{list-style:none;margin:5px 0 0;padding:0;display:grid;gap:3px;font-size:13px;color:var(--muted)}
 .msteps li{display:flex;gap:7px;align-items:baseline}
@@ -374,7 +385,8 @@ body.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none}
 <div class="actions"><button class="btn primary" type="submit" id="lSave">Create list</button><button class="btn" type="button" id="lCancel">Cancel</button><span id="lDelWrap"></span></div>
 </form>
 <section class="panel" id="bkPanel" hidden>
-<h3>Backups and export</h3>
+<h3>Settings</h3>
+<h4 class="sethd">Backups and export</h4>
 <p class="hint" style="margin:-8px 0 12px">Covers all your lists. A copy of every list, task and reminder is saved after every change (last 20) and at the start of each day (last 7 days). Restore one if anything is ever lost. Ticks and history stay as they are.</p>
 <div id="bkList"></div>
 <button class="btn" type="button" id="bkShow">Show backups</button>
@@ -388,7 +400,9 @@ body.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none}
 <div class="err" id="eBk"></div>
 <div class="okmsg" id="okBk"></div>
 <div class="actions" style="margin-top:16px"><button class="btn" type="button" id="bkClose">Close</button></div>
+<p class="appver">Version 15</p>
 </section>
+<div class="cfm" id="cfm" role="dialog" aria-modal="true" aria-labelledby="cfmT" aria-describedby="cfmP" hidden><div class="cfmbox"><h3 id="cfmT"></h3><p id="cfmP"></p><div class="actions"><button class="btn" type="button" id="cfmNo">Cancel</button><button class="btn redfill" type="button" id="cfmYes"></button></div></div></div>
 <div class="undo" id="undoBar" role="status" hidden><span id="undoMsg"></span><button class="btn small" type="button" id="undoBtn">Undo</button></div>
 <div id="todayView"></div>
 <div id="editView" hidden>
@@ -524,7 +538,6 @@ a.href=u;a.download=req.filename;document.body.appendChild(a);a.click();a.remove
 return window.__fbReady.then(function(api){return api?api.use(name):null});
 }};
 </script>
-<p id="pageVer" style="text-align:center;font-size:12px;color:var(--muted);margin:28px 0 8px">Page version: 2026-11-20 r13</p>
 <script>
 (function(){
 "use strict";
@@ -653,9 +666,9 @@ function writeLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(state))}cat
 var saveTimer=null, saving=Promise.resolve(), dirty=false, synced=false;
 function pruneQuick(){var cut=addDays(today(),-8);state.tasks=state.tasks.filter(function(t){return !(t.quick&&t.rule&&t.rule.type==="dates"&&Array.isArray(t.rule.dates)&&t.rule.dates.every(function(d){return d<cut}))&&!(t.rule&&t.rule.type==="until"&&t.doneOn&&t.doneOn<cut)})}
 var undoSnap=null, undoTimer=null, inUndoOp=false, undoing=false;
-function showUndo(msg,snap){undoSnap=snap;$("undoMsg").textContent=msg;$("undoBar").hidden=false;clearTimeout(undoTimer);undoTimer=setTimeout(hideUndo,7000)}
+function showUndo(msg,snap){}
 function hideUndo(){undoSnap=null;clearTimeout(undoTimer);$("undoBar").hidden=true}
-function withUndo(msg,fn){var snap=clone(state);inUndoOp=true;try{fn()}finally{inUndoOp=false}showUndo(msg,snap)}
+function withUndo(msg,fn){fn()}
 function save(){
 if(undoSnap&&!inUndoOp&&!undoing) hideUndo();
 pruneQuick();catchUpUntil();
@@ -1089,7 +1102,7 @@ if(bkConfirm===it.key){
 var cf=document.createElement("span");cf.className="confirm";cf.textContent="Replace your current list with this one?";
 var y=mkBtn("Yes, restore",false,function(){withUndo("Restored a backup.",function(){restoreBk(it)})});y.classList.add("danger");cf.appendChild(y);
 cf.appendChild(mkBtn("No",false,function(){bkConfirm=null;renderBk()}));row.appendChild(cf);
-} else row.appendChild(mkBtn("Restore",!n,function(){bkConfirm=it.key;$("okBk").textContent="";renderBk()}));
+} else row.appendChild(mkBtn("Restore",!n,function(){$("okBk").textContent="";askConfirm("Restore this backup?","Replaces all your lists, tasks and reminders with the copy from "+it.label+". Ticks and history stay.","Restore",function(){restoreBk(it)})}));
 l.appendChild(row);
 });
 });
@@ -1156,7 +1169,7 @@ var r=new FileReader();
 r.onload=function(){
 var d=null;try{d=JSON.parse(r.result)}catch(e){}
 if(!d||!validTasks(d.tasks)){$("eBk").textContent="That file isn’t a checklist export. Pick a file made with Export.";return}
-impPending={tasks:d.tasks,reminders:d.reminders,lists:d.lists,name:f.name};renderImp();
+impPending={tasks:d.tasks,reminders:d.reminders,lists:d.lists,name:f.name};renderImp();askConfirm("Import "+f.name+"?","Replaces all your lists, tasks and reminders with the "+d.tasks.length+" tasks in this file. Ticks and history stay.","Import",function(){var y=document.querySelector("#impConfirm .btn.danger");if(y) y.click()});
 };
 r.onerror=function(){$("eBk").textContent="Couldn’t read that file."};
 r.readAsText(f);
@@ -1246,7 +1259,7 @@ var yes=mkBtn("Yes, remove",false,function(){withUndo("Removed “"+x.name+"”.
 var no=mkBtn("No",false,function(){confirmId=null;renderEdit()});
 cf.appendChild(yes);cf.appendChild(no);c.appendChild(cf);
 } else {
-var rm=mkBtn("Remove",false,function(){confirmId=x.id;renderEdit()});rm.classList.add("danger");c.appendChild(rm);
+var rm=mkBtn("Remove",false,function(){askConfirm("Delete “"+x.name+"”?","The task is deleted for good. Your automatic backups still have it.","Delete task",function(){remove(x.id)})});rm.classList.add("danger");c.appendChild(rm);
 }
 if(moveOpen===x.id&&!selMode){var mp=document.createElement("div");mp.className="movepick";mp.appendChild(document.createTextNode("To"));
 var ms=document.createElement("select");ms.className="in";ms.setAttribute("aria-label","Move to list");listsArr().forEach(function(L){if(L.id!==curList){var o=document.createElement("option");o.value=L.id;o.textContent=L.name;ms.appendChild(o)}});mp.appendChild(ms);
@@ -1281,7 +1294,7 @@ bulkPick(bar,"Section",SECTIONS.map(function(s){return [s.id,s.name]}),function(
 withUndo("Moved "+label+" to "+(secOf(v)||{}).name+".",function(){sel().forEach(function(t){t.section=v});selIds=[];save();render()})});
 if(listsArr().length>1) bulkPick(bar,"Move to list",listsArr().filter(function(L){return L.id!==curList}).map(function(L){return [L.id,L.name]}),function(v){
 withUndo("Moved "+label+" to "+listById(v).name+".",function(){sel().forEach(function(t){t.section=mapSec(t.section,v);t.list=v});selIds=[];save();render()})});
-if(!bulkRmAsk){var rb=mkBtn("Remove",false,function(){bulkRmAsk=true;renderEdit()});rb.classList.add("danger");bar.appendChild(rb)}
+if(!bulkRmAsk){var rb=mkBtn("Remove",false,function(){askConfirm("Delete "+label+"?","They’re deleted for good. Your automatic backups still have them.","Delete",function(){var ids=selIds.slice();state.tasks=state.tasks.filter(function(t){return ids.indexOf(t.id)<0});state.ticks.ids=state.ticks.ids.filter(function(i){return ids.indexOf(i)<0});state.started=startedToday().filter(function(i){return ids.indexOf(i)<0});selIds=[];bulkRmAsk=false;save();render()})});rb.classList.add("danger");bar.appendChild(rb)}
 else{var cf=document.createElement("span");cf.className="confirm";cf.textContent="Remove "+label+"?";
 var y=mkBtn("Yes, remove",false,function(){withUndo("Removed "+label+".",function(){var ids=selIds.slice();state.tasks=state.tasks.filter(function(t){return ids.indexOf(t.id)<0});state.ticks.ids=state.ticks.ids.filter(function(i){return ids.indexOf(i)<0});state.started=startedToday().filter(function(i){return ids.indexOf(i)<0});selIds=[];bulkRmAsk=false;save();render()})});y.classList.add("danger");
 cf.appendChild(y);cf.appendChild(mkBtn("No",false,function(){bulkRmAsk=false;renderEdit()}));bar.appendChild(cf)}
@@ -1545,7 +1558,7 @@ var cf=document.createElement("span");cf.className="confirm";cf.textContent="Rem
 var yes=mkBtn("Yes, remove",false,function(){withUndo("Removed reminder.",function(){state.reminders=state.reminders.filter(function(x){return x.id!==r.id});remConfirm=null;if(remEdit===r.id){remEdit=null;$("remInput").value=""}save();render()})});yes.classList.add("danger");
 cf.appendChild(yes);cf.appendChild(mkBtn("No",false,function(){remConfirm=null;renderRems()}));row.appendChild(cf);
 } else {
-var rm=mkBtn("Remove",false,function(){remConfirm=r.id;renderRems()});rm.classList.add("danger");row.appendChild(rm);
+var rm=mkBtn("Remove",false,function(){askConfirm("Delete this reminder?","“"+r.text+"” is deleted for good.","Delete",function(){state.reminders=state.reminders.filter(function(x){return x.id!==r.id});remConfirm=null;if(remEdit===r.id){remEdit=null;$("remInput").value=""}save();render()})});rm.classList.add("danger");row.appendChild(rm);
 }
 l.appendChild(row);
 });
@@ -1671,7 +1684,7 @@ var dn=dueX.filter(function(y){return ticksToday().indexOf(y.id)>=0}).length;
 var em=document.createElement("em");em.textContent=offToday(x.id)?"Day off":dn+"/"+dueX.length+" today";it.appendChild(em);
 it.addEventListener("click",function(e){e.stopPropagation();lmenuOpen=false;closeListForm();closeBackups();if(editing) $("editBtn").click();setCurList(x.id)});m.appendChild(it)});
 m.appendChild(document.createElement("hr"));
-var acts=[["+ New list","new"],["List settings for "+L.name,"edit"],["Backups and export (all lists)","backups"]];
+var acts=[["+ New list","new"],["List settings for "+L.name,"edit"],["Settings","backups"]];
 
 acts.forEach(function(a){var it=document.createElement("button");it.type="button";it.setAttribute("role","menuitem");it.textContent=a[0];
 it.addEventListener("click",function(e){e.stopPropagation();lmenuOpen=false;if(a[1]==="backups") openBackups(); else if(a[1]==="off"){setDayMode(curList,"off");save();render()} else if(a[1]==="work"){setDayMode(curList,null);save();render()} else openListForm(a[1])});m.appendChild(it)});
@@ -1729,7 +1742,7 @@ $("lOffDate").min=today();
 }
 $("lOffAdd").addEventListener("click",function(){$("eOff").textContent="";var v=$("lOffDate").value;if(!v){$("eOff").textContent="Pick a date first.";return}if(v<today()){$("eOff").textContent="That date is in the past. Pick today or later.";return}if(ldraft.off.dates.indexOf(v)<0) ldraft.off.dates.push(v);$("lOffDate").value="";renderOffUI()});
 function renderLDel(){var w=$("lDelWrap");w.textContent="";if(lform!=="edit"||listsArr().length<2) return;
-if(!lDelAsk){var b=mkBtn("Delete this list",false,function(){lDelAsk=true;renderLDel()});b.classList.add("danger");b.classList.remove("small");w.appendChild(b);return}
+if(!lDelAsk){var b=mkBtn("Delete this list",false,function(){var nT=state.tasks.filter(inList).length;askConfirm("Delete "+curL().name+"?","The list and its "+nT+(nT===1?" task":" tasks")+" are deleted for good. Your automatic backups still have them.","Delete list",function(){var id=curList;state.tasks=state.tasks.filter(function(t){return (t.list||"work")!==id});state.reminders=(state.reminders||[]).filter(function(r){return (r.list||"work")!==id});state.lists=listsArr().filter(function(l){return l.id!==id});closeListForm();save();setCurList(state.lists[0].id)})});b.classList.add("danger");b.classList.remove("small");w.appendChild(b);return}
 var n=state.tasks.filter(inList).length,cf=document.createElement("span");cf.className="confirm";cf.style.flexWrap="wrap";cf.textContent="Delete "+curL().name+" and its "+n+(n===1?" task":" tasks")+"?";
 var y=mkBtn("Yes, delete",false,function(){var delName=curL().name;withUndo("Deleted list "+delName+".",function(){var id=curList;state.tasks=state.tasks.filter(function(t){return (t.list||"work")!==id});state.reminders=(state.reminders||[]).filter(function(r){return (r.list||"work")!==id});
 state.lists=listsArr().filter(function(l){return l.id!==id});closeListForm();save();setCurList(state.lists[0].id)})});y.classList.add("danger");
@@ -1800,11 +1813,11 @@ function closeTodayMenu(){$("todayMenu").hidden=true;$("untickBtn").setAttribute
 document.addEventListener("click",closeTodayMenu);
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("todayMenu").hidden){closeTodayMenu();$("untickBtn").focus()}});
 function closeAsk(){$("todayAsk").hidden=true;$("untickBtn").hidden=editing}
-function todayAsk(q,yes,fn){var a=$("todayAsk");a.textContent="";a.hidden=false;$("untickBtn").hidden=true;a.appendChild(document.createTextNode(q+" "));
+function todayAsk(q,yes,fn){fn();return;var a=$("todayAsk");a.textContent="";a.hidden=false;$("untickBtn").hidden=true;a.appendChild(document.createTextNode(q+" "));
   var y=mkBtn(yes,false,function(){closeAsk();fn()});y.classList.add("danger");a.appendChild(y);
   if(yes!=="OK") a.appendChild(mkBtn("No",false,function(){closeAsk();$("untickBtn").focus()}));y.focus()}
 [].forEach.call(document.querySelectorAll("#todayMenu [data-a]"),function(b){b.addEventListener("click",function(ev){ev.stopPropagation();closeTodayMenu();var a=b.dataset.a;
-  if(a==="untick"){$("untickBtn").hidden=true;$("untickConfirm").hidden=false;$("untickNo").focus();return}
+  if(a==="untick"){askConfirm("Untick all for today?","Clears every tick in "+curL().name+" for today. This can’t be undone.","Untick all",function(){$("untickYes").click()});return}
   if(a==="off"){var off=offToday(curList),ov=dayOverride(curList);
     if(off) todayAsk(ov==="off"?"Go back to a normal workday?":"Work on your day off today?",ov==="off"?"Yes, back to work":"Yes, work today",function(){withUndo(ov==="off"?"Back to a workday.":"Working on your day off.",function(){setDayMode(curList,ov==="off"?null:"work");save();render()})});
     else todayAsk("Take today off for "+curL().name+"?","Yes, take today off",function(){withUndo("Took today off.",function(){setDayMode(curList,"off");save();render()})});
@@ -1825,6 +1838,13 @@ document.querySelectorAll(".themesw button").forEach(function(b,i,all){
   b.addEventListener("click",function(){state.theme=b.dataset.th;applyTheme(state.theme);save()});
   b.addEventListener("keydown",function(e){if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();var n=all[(i+(e.key==="ArrowRight"?1:all.length-1))%all.length];n.click();n.focus()}});
 });
+var cfmFn=null,cfmBack=null;
+function askConfirm(title,text,yes,fn){cfmFn=fn;cfmBack=document.activeElement;$("cfmT").textContent=title;$("cfmP").textContent=text;$("cfmYes").textContent=yes;$("cfm").hidden=false;$("cfmNo").focus()}
+function closeCfm(){$("cfm").hidden=true;cfmFn=null;if(cfmBack&&cfmBack.focus){try{cfmBack.focus()}catch(e){}}}
+$("cfmNo").addEventListener("click",function(){var c=impPending;closeCfm();if(c){impPending=null;renderImp()}});
+$("cfmYes").addEventListener("click",function(){var f=cfmFn;$("cfm").hidden=true;cfmFn=null;if(f) f()});
+$("cfm").addEventListener("click",function(e){if(e.target===$("cfm")) $("cfmNo").click()});
+document.addEventListener("keydown",function(e){if(!$("cfm").hidden){if(e.key==="Escape"){e.preventDefault();$("cfmNo").click()}else if(e.key==="Tab"){var a=[$("cfmNo"),$("cfmYes")],i=a.indexOf(document.activeElement);e.preventDefault();a[(i+(e.shiftKey?1:1))%2].focus()}}});
 /* ---------- quick add ---------- */
 function quickAdd(){
 $("eQa").textContent="";
@@ -1874,12 +1894,12 @@ start();
 <script type="module">
 /* ====== PASTE YOUR FIREBASE SETTINGS HERE (setup guide, step 5) ====== */
 const firebaseConfig = {
-  apiKey: "AIzaSyAf5rqSsdn-zTMi98F27smGA5Q4pyStRiw",
-  authDomain: "fel-checklist.firebaseapp.com",
-  projectId: "fel-checklist",
-  storageBucket: "fel-checklist.firebasestorage.app",
-  messagingSenderId: "227217087879",
-  appId: "1:227217087879:web:1abe04e1af72b671260722"
+apiKey: "PASTE_HERE",
+authDomain: "PASTE_HERE",
+projectId: "PASTE_HERE",
+storageBucket: "PASTE_HERE",
+messagingSenderId: "PASTE_HERE",
+appId: "PASTE_HERE"
 };
 /* ====== END OF SETTINGS ====== */
 const $=id=>document.getElementById(id);
